@@ -373,8 +373,6 @@ class LibcurlConan(ConanFile):
                 autotools_vars["RCFLAGS"] += " --target=pe-i386"
             else:
                 autotools_vars["RCFLAGS"] += " --target=pe-x86-64"
-            self.output.info("Autotools env vars: " + repr(autotools_vars))
-
         return autotools_vars
 
     def _configure_autotools(self):
