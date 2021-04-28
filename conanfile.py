@@ -220,11 +220,6 @@ class LibcurlConan(ConanFile):
                                       "#define CURL_BUILD_MAC_10_13 MAC_OS_X_VERSION_MAX_ALLOWED >= 101300",
                                       "#define CURL_BUILD_MAC_10_13 0")
 
-        if self._has_zstd_option:
-            # Custom findZstd.cmake file relies on pkg-config file, make sure that it's consumed on all platforms
-            tools.replace_in_file(os.path.join(self._source_subfolder, "CMake", "FindZstd.cmake"),
-                                  "if(UNIX)", "if(TRUE)")
-
     def _patch_mingw_files(self):
         if not self._is_mingw:
             return
@@ -266,10 +261,15 @@ class LibcurlConan(ConanFile):
                 tools.save(lib_makefile, added_content, append=True)
 
     def _patch_cmake(self):
+        if not self._is_using_cmake_build:
+            return
+        # Custom findZstd.cmake file relies on pkg-config file, make sure that it's consumed on all platforms
+        if self._has_zstd_option:
+            tools.replace_in_file(os.path.join(self._source_subfolder, "CMake", "FindZstd.cmake"),
+                                  "if(UNIX)", "if(TRUE)")
         # TODO: check this patch, it's suspicious
-        if self._is_using_cmake_build:
-            tools.replace_in_file(os.path.join(self._source_subfolder, "CMakeLists.txt"),
-                                  "include(CurlSymbolHiding)", "")
+        tools.replace_in_file(os.path.join(self._source_subfolder, "CMakeLists.txt"),
+                              "include(CurlSymbolHiding)", "")
 
     def _get_configure_command_args(self):
         yes_no = lambda v: "yes" if v else "no"
