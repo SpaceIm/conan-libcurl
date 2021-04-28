@@ -1,8 +1,9 @@
+from conans import ConanFile, AutoToolsBuildEnvironment, RunEnvironment, CMake, tools
+from conans.errors import ConanInvalidConfiguration
+import itertools
 import glob
 import os
 import re
-from conans import ConanFile, AutoToolsBuildEnvironment, RunEnvironment, CMake, tools
-from conans.errors import ConanInvalidConfiguration
 
 
 class LibcurlConan(ConanFile):
@@ -228,45 +229,41 @@ class LibcurlConan(ConanFile):
         if not self._is_mingw:
             return
         # patch autotools files
+        top_makefile = os.path.join(self._source_subfolder, "Makefile.am")
+        configure_ac = os.path.join(self._source_subfolder, "configure.ac")
+        lib_makefile = os.path.join(self._source_subfolder, "lib", "Makefile.am")
+
         # for mingw builds - do not compile curl tool, just library
         # linking errors are much harder to fix than to exclude curl tool
-        tools.replace_in_file("Makefile.am",
-                              "SUBDIRS = lib src",
-                              "SUBDIRS = lib")
-
-        tools.replace_in_file("Makefile.am",
-                              "include src/Makefile.inc",
-                              "")
+        tools.replace_in_file(top_makefile, "SUBDIRS = lib src", "SUBDIRS = lib")
+        tools.replace_in_file(top_makefile, "include src/Makefile.inc", "")
 
         # patch for zlib naming in mingw
-        # when cross-building, the name is correct
-        if not tools.cross_building(self.settings):
-            tools.replace_in_file("configure.ac",
+        if self.options.with_zlib:
+            zlib_name = self.deps_cpp_info["zlib"].libs[0]
+            tools.replace_in_file(configure_ac,
+                                  "AC_CHECK_LIB(z,",
+                                  "AC_CHECK_LIB({},".format(zlib_name))
+            tools.replace_in_file(configure_ac,
                                   "-lz ",
-                                  "-lzlib ")
-
-        # patch for openssl extras in mingw
-        if self.options.with_ssl == "openssl":
-            tools.replace_in_file("configure",
-                                  "-lcrypto ",
-                                  "-lcrypto -lcrypt32 ")
+                                  "-l{} ".format(zlib_name))
 
         if self.options.shared:
             # patch for shared mingw build
-            tools.replace_in_file(os.path.join("lib", "Makefile.am"),
+            tools.replace_in_file(lib_makefile,
                                   "noinst_LTLIBRARIES = libcurlu.la",
                                   "")
-            tools.replace_in_file(os.path.join("lib", "Makefile.am"),
+            tools.replace_in_file(lib_makefile,
                                   "noinst_LTLIBRARIES =",
                                   "")
-            tools.replace_in_file(os.path.join("lib", "Makefile.am"),
+            tools.replace_in_file(lib_makefile,
                                   "lib_LTLIBRARIES = libcurl.la",
                                   "noinst_LTLIBRARIES = libcurl.la")
             # add directives to build dll
             # used only for native mingw-make
             if not tools.cross_building(self.settings):
-                added_content = tools.load(os.path.join(self.source_folder, "lib_Makefile_add.am"))
-                tools.save(os.path.join("lib", "Makefile.am"), added_content, append=True)
+                added_content = tools.load("lib_Makefile_add.am")
+                tools.save(lib_makefile, added_content, append=True)
 
     def _patch_cmake(self):
         # TODO: check this patch, it's suspicious
@@ -379,8 +376,6 @@ class LibcurlConan(ConanFile):
                 autotools_vars["RCFLAGS"] += " --target=pe-i386"
             else:
                 autotools_vars["RCFLAGS"] += " --target=pe-x86-64"
-
-            del autotools_vars["LIBS"]
             self.output.info("Autotools env vars: " + repr(autotools_vars))
 
         return autotools_vars
