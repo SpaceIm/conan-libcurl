@@ -449,7 +449,7 @@ class LibcurlConan(ConanFile):
             cmake.install()
             tools.rmdir(os.path.join(self.package_folder, "lib", "cmake"))
         else:
-            with tools.run_environment():
+            with tools.run_environment(self):
                 with tools.chdir(self._source_subfolder):
                     autotools, autotools_vars = self._configure_autotools()
                     autotools.install(vars=autotools_vars)
