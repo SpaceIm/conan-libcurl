@@ -1,6 +1,5 @@
 from conans import ConanFile, AutoToolsBuildEnvironment, CMake, tools
 from conans.errors import ConanInvalidConfiguration
-import itertools
 import glob
 import os
 import re
